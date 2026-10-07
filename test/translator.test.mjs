@@ -43,7 +43,7 @@ const effortHighReq = {
   reasoning_effort: "high"
 };
 const effortHighPayload = chatCompletionsToResponsesBody(effortHighReq);
-assert.deepEqual(effortHighPayload.reasoning, { effort: "high" });
+assert.deepEqual(effortHighPayload.reasoning, { effort: "high", summary: "detailed" });
 
 const effortXHighReq = {
   model: "muse-spark-1.3-contributor",
@@ -51,7 +51,7 @@ const effortXHighReq = {
   reasoning_effort: "xhigh"
 };
 const effortXHighPayload = chatCompletionsToResponsesBody(effortXHighReq);
-assert.deepEqual(effortXHighPayload.reasoning, { effort: "xhigh" });
+assert.deepEqual(effortXHighPayload.reasoning, { effort: "xhigh", summary: "detailed" });
 
 const effortNoneReq = {
   model: "muse-spark-1.3-contributor",
@@ -67,13 +67,17 @@ const effortNestedReq = {
   reasoning: { effort: "low" }
 };
 const effortNestedPayload = chatCompletionsToResponsesBody(effortNestedReq);
-assert.deepEqual(effortNestedPayload.reasoning, { effort: "low" });
+assert.deepEqual(effortNestedPayload.reasoning, { effort: "low", summary: "detailed" });
 
 // 3. Responses API non-streaming JSON -> Chat Completions JSON
 const rawResponsesResp = {
   id: "resp_1234567890",
   model: "muse-spark-1.3-contributor",
   output: [
+    {
+      type: "reasoning",
+      summary: [{ type: "summary_text", text: "Reasoning step 1" }, { type: "summary_text", text: "Reasoning step 2" }]
+    },
     {
       type: "message",
       role: "assistant",
@@ -90,6 +94,7 @@ const rawResponsesResp = {
 const chatResp = responsesToChatCompletionsResponse(rawResponsesResp, "muse-spark-1.3-contributor");
 assert.equal(chatResp.id, "chatcmpl_1234567890");
 assert.equal(chatResp.choices[0].message.content, "Hello from Responses API!");
+assert.equal(chatResp.choices[0].message.reasoning_content, "Reasoning step 1\n\nReasoning step 2");
 assert.equal(chatResp.choices[0].finish_reason, "stop");
 assert.equal(chatResp.usage.prompt_tokens, 15);
 assert.equal(chatResp.usage.completion_tokens, 8);
@@ -97,6 +102,15 @@ assert.equal(chatResp.usage.total_tokens, 23);
 
 // 4. SSE translation
 const state = { id: "", model: "muse-spark-1.3-contributor" };
+
+// 4a. Reasoning summary delta SSE
+const reasoningChunkRaw = `event: response.reasoning_summary_text.delta\ndata: {"type":"response.reasoning_summary_text.delta","delta":"Thinking through the problem..."}\n\n`;
+const reasoningChunkOpenAi = translateResponsesEventToOpenAiChunk(reasoningChunkRaw, state);
+assert.ok(reasoningChunkOpenAi.startsWith("data: "));
+const parsedReasoningChunk = JSON.parse(reasoningChunkOpenAi.replace("data: ", "").trim());
+assert.equal(parsedReasoningChunk.choices[0].delta.reasoning_content, "Thinking through the problem...");
+
+// 4b. Text delta SSE
 const textChunkRaw = `event: response.output_text.delta\ndata: {"type":"response.output_text.delta","delta":"Hello "}\n\n`;
 const textChunkOpenAi = translateResponsesEventToOpenAiChunk(textChunkRaw, state);
 assert.ok(textChunkOpenAi.startsWith("data: "));

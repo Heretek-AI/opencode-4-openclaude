@@ -83,10 +83,65 @@ server.listen(TEST_PORT, "127.0.0.1", async () => {
     assert.equal(effortRes.status, 200, `Muse Spark with reasoning_effort should be 200 (was ${effortRes.status})`);
     const effortJson = await effortRes.json();
     const effortReply = effortJson.choices?.[0]?.message?.content?.trim();
+    const effortReasoning = effortJson.choices?.[0]?.message?.reasoning_content;
     const effortDuration = ((Date.now() - effortStart) / 1000).toFixed(2);
     console.log(`✔ Muse Spark with reasoning_effort='high' responded in ${effortDuration}s:`);
+    console.log(`  Reasoning: "${effortReasoning ? effortReasoning.slice(0, 80) + '...' : '(none)'}"`);
     console.log(`  Output: "${effortReply}"`);
     assert.ok(effortReply && /yes/i.test(effortReply), "Muse Spark should answer yes for prime 97");
+    assert.ok(effortReasoning && effortReasoning.length > 0, "Non-streaming message should include reasoning_content");
+
+    // 4. Verify Live Streaming Reasoning Tokens with Muse Spark 1.3 Contributor
+    console.log("\n[4/4] Verifying Live Streaming Reasoning Chunks (Muse Spark 1.3)...");
+    const streamStart = Date.now();
+    const streamRes = await fetch(`${baseUrl}/chat/completions`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "muse-spark-1.3-contributor",
+        messages: [{ role: "user", content: "Which is bigger: 9.11 or 9.9?" }],
+        reasoning_effort: "high",
+        stream: true
+      })
+    });
+
+    assert.equal(streamRes.status, 200);
+    const reader = streamRes.body.getReader();
+    const decoder = new TextDecoder();
+    let streamBuf = "";
+    let reasoningTokens = "";
+    let contentTokens = "";
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      streamBuf += decoder.decode(value, { stream: true });
+      const parts = streamBuf.split("\n\n");
+      streamBuf = parts.pop() || "";
+      for (const part of parts) {
+        for (const line of part.split("\n")) {
+          if (line.startsWith("data: ") && !line.includes("[DONE]")) {
+            try {
+              const parsed = JSON.parse(line.slice(6));
+              const delta = parsed.choices?.[0]?.delta;
+              if (delta?.reasoning_content) {
+                reasoningTokens += delta.reasoning_content;
+              }
+              if (delta?.content) {
+                contentTokens += delta.content;
+              }
+            } catch {}
+          }
+        }
+      }
+    }
+
+    const streamDuration = ((Date.now() - streamStart) / 1000).toFixed(2);
+    console.log(`✔ Stream completed in ${streamDuration}s:`);
+    console.log(`  Streamed Reasoning: "${reasoningTokens.slice(0, 100)}..." (${reasoningTokens.length} chars)`);
+    console.log(`  Streamed Content:   "${contentTokens.slice(0, 100)}..." (${contentTokens.length} chars)`);
+    assert.ok(reasoningTokens.length > 0, "Should receive streaming reasoning_content tokens");
+    assert.ok(contentTokens.length > 0, "Should receive streaming content tokens");
 
     console.log("\n==================================================");
     console.log("✔ LIVE VERIFICATION PASSED FOR ALL MODELS & REASONING!");

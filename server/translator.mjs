@@ -123,12 +123,17 @@ export function chatCompletionsToResponsesBody(body) {
   if (typeof max_output_tokens === "number") responsesPayload.max_output_tokens = max_output_tokens;
   else if (typeof max_tokens === "number") responsesPayload.max_output_tokens = max_tokens;
 
-  // Translate reasoning_effort (OpenAI Chat Completions) to reasoning: { effort } (Responses API)
+  // Translate reasoning_effort (OpenAI Chat Completions) to reasoning: { effort, summary } (Responses API)
   const incomingEffort = body.reasoning_effort || (typeof body.reasoning === "object" ? body.reasoning?.effort : undefined);
-  if (incomingEffort && incomingEffort !== "auto" && incomingEffort !== "none") {
-    responsesPayload.reasoning = {
-      effort: incomingEffort
+  if (incomingEffort !== "none") {
+    const incomingSummary = typeof body.reasoning === "object" && body.reasoning?.summary ? body.reasoning.summary : "detailed";
+    const reasoningObj = {
+      summary: incomingSummary
     };
+    if (incomingEffort && incomingEffort !== "auto") {
+      reasoningObj.effort = incomingEffort;
+    }
+    responsesPayload.reasoning = reasoningObj;
   }
 
   if (Array.isArray(tools)) {
@@ -171,11 +176,23 @@ export function responsesToChatCompletionsResponse(responsesData, requestedModel
   const model = responsesData.model || requestedModel;
 
   let textContent = "";
+  let reasoningContent = "";
   const toolCalls = [];
 
   const output = Array.isArray(responsesData.output) ? responsesData.output : [];
   for (const item of output) {
-    if (item.type === "message") {
+    if (item.type === "reasoning") {
+      if (Array.isArray(item.summary)) {
+        const parts = item.summary.map(s => s.text || s.content || (typeof s === "string" ? s : "")).filter(Boolean);
+        if (parts.length > 0) {
+          reasoningContent = parts.join("\n\n");
+        }
+      } else if (typeof item.summary === "string") {
+        reasoningContent = item.summary;
+      } else if (typeof item.content === "string") {
+        reasoningContent = item.content;
+      }
+    } else if (item.type === "message") {
       if (Array.isArray(item.content)) {
         for (const part of item.content) {
           if ((part.type === "output_text" || part.type === "text") && typeof part.text === "string") {
@@ -205,7 +222,8 @@ export function responsesToChatCompletionsResponse(responsesData, requestedModel
 
   const message = {
     role: "assistant",
-    content: textContent || (toolCalls.length ? null : "")
+    content: textContent || (toolCalls.length ? null : ""),
+    ...(reasoningContent ? { reasoning_content: reasoningContent } : {})
   };
   if (toolCalls.length > 0) {
     message.tool_calls = toolCalls;
@@ -279,6 +297,31 @@ export function translateResponsesEventToOpenAiChunk(eventString, state = { id: 
     model,
     choices: []
   };
+
+  // Reasoning Summary / Reasoning Text Delta
+  if (
+    eventType === "response.reasoning_summary_text.delta" ||
+    eventType === "response.reasoning_text.delta" ||
+    data.type === "response.reasoning_summary_text.delta" ||
+    data.type === "response.reasoning_text.delta"
+  ) {
+    let reasoningText = data.delta ?? data.text ?? data.reasoning_delta ?? "";
+    if (reasoningText) {
+      state.hasEmittedReasoning = true;
+      if (typeof data.summary_index === "number") {
+        if (state.lastSummaryIndex !== undefined && state.lastSummaryIndex !== data.summary_index) {
+          reasoningText = "\n\n" + reasoningText;
+        }
+        state.lastSummaryIndex = data.summary_index;
+      }
+      baseChunk.choices.push({
+        index: 0,
+        delta: { reasoning_content: reasoningText },
+        finish_reason: null
+      });
+      return `data: ${JSON.stringify(baseChunk)}\n\n`;
+    }
+  }
 
   // Text Delta
   if (
