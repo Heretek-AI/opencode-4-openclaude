@@ -123,6 +123,14 @@ export function chatCompletionsToResponsesBody(body) {
   if (typeof max_output_tokens === "number") responsesPayload.max_output_tokens = max_output_tokens;
   else if (typeof max_tokens === "number") responsesPayload.max_output_tokens = max_tokens;
 
+  // Translate reasoning_effort (OpenAI Chat Completions) to reasoning: { effort } (Responses API)
+  const incomingEffort = body.reasoning_effort || (typeof body.reasoning === "object" ? body.reasoning?.effort : undefined);
+  if (incomingEffort && incomingEffort !== "auto" && incomingEffort !== "none") {
+    responsesPayload.reasoning = {
+      effort: incomingEffort
+    };
+  }
+
   if (Array.isArray(tools)) {
     responsesPayload.tools = tools.map((t) => {
       if (t.type === "function" && t.function) {

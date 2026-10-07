@@ -64,11 +64,32 @@ server.listen(TEST_PORT, "127.0.0.1", async () => {
     const spaceDuration = ((Date.now() - spaceStart) / 1000).toFixed(2);
     console.log(`✔ Space Bunny responded in ${spaceDuration}s:`);
     console.log(`  Output: "${spaceReply}"`);
-    console.log(`  Usage: ${JSON.stringify(spaceJson.usage)}`);
     assert.ok(spaceReply && /yellow/i.test(spaceReply), "Space Bunny should correctly reply with yellow");
 
+    // 3. Verify Reasoning Effort with Muse Spark 1.3 Contributor
+    console.log("\n[3/3] Verifying Configurable Reasoning Effort: Muse Spark 1.3 with reasoning_effort='high'...");
+    const effortStart = Date.now();
+    const effortRes = await fetch(`${baseUrl}/chat/completions`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "muse-spark-1.3-contributor",
+        messages: [{ role: "user", content: "Is 97 prime? Reply yes or no only." }],
+        reasoning_effort: "high",
+        stream: false
+      })
+    });
+
+    assert.equal(effortRes.status, 200, `Muse Spark with reasoning_effort should be 200 (was ${effortRes.status})`);
+    const effortJson = await effortRes.json();
+    const effortReply = effortJson.choices?.[0]?.message?.content?.trim();
+    const effortDuration = ((Date.now() - effortStart) / 1000).toFixed(2);
+    console.log(`✔ Muse Spark with reasoning_effort='high' responded in ${effortDuration}s:`);
+    console.log(`  Output: "${effortReply}"`);
+    assert.ok(effortReply && /yes/i.test(effortReply), "Muse Spark should answer yes for prime 97");
+
     console.log("\n==================================================");
-    console.log("✔ LIVE VERIFICATION PASSED FOR BOTH MODELS!");
+    console.log("✔ LIVE VERIFICATION PASSED FOR ALL MODELS & REASONING!");
     console.log("==================================================");
   } catch (err) {
     console.error("\n❌ Live model verification failed:", err);

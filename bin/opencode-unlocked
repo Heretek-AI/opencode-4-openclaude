@@ -109,6 +109,8 @@ async function printStatus() {
   console.log(`Gateway Status : ${running ? "🟢 ONLINE" : "🔴 OFFLINE"}`);
   console.log(`Gateway URL    : http://${CONFIG.HOST}:${CONFIG.PORT}/v1`);
   console.log(`Default Model  : ${config.defaultModel || CONFIG.DEFAULT_MODEL}`);
+  console.log(`Context Window : 1,048,576 tokens (1M native)`);
+  console.log(`Reasoning Effort: ${config.reasoningEffort || "auto (low, medium, high, xhigh supported)"}`);
   console.log(`API Key Loaded : ${apiKey ? `✔ Configured (${apiKey.slice(0, 8)}...)` : "❌ Missing"}`);
   console.log(`Config Path    : ${getUserConfigPath()}`);
 
@@ -156,6 +158,23 @@ async function setModel(modelName) {
   console.log(`✔ Default model updated to: ${modelName}`);
 }
 
+async function setEffort(effortLevel) {
+  if (!effortLevel) {
+    const config = loadUserConfig();
+    console.log(`Current reasoning effort: ${config.reasoningEffort || "auto (model default)"}`);
+    console.log("Supported levels: low, medium, high, xhigh, auto");
+    return;
+  }
+  const valid = ["low", "medium", "high", "xhigh", "auto"];
+  const normalized = effortLevel.toLowerCase();
+  if (!valid.includes(normalized)) {
+    console.error(`Invalid effort level "${effortLevel}". Valid options: ${valid.join(", ")}`);
+    process.exit(1);
+  }
+  saveUserConfig({ reasoningEffort: normalized });
+  console.log(`✔ Default reasoning effort updated to: ${normalized}`);
+}
+
 async function runTests() {
   console.log("Running live verification suite...");
   const child = spawn(process.execPath, [path.join(ROOT_DIR, "test", "live-models.test.mjs")], {
@@ -192,6 +211,10 @@ switch (command) {
   case "set-model":
     await setModel(args[1]);
     break;
+  case "effort":
+  case "reasoning":
+    await setEffort(args[1]);
+    break;
   case "test":
     await runTests();
     break;
@@ -210,12 +233,13 @@ Commands:
   start           Start the local bridge daemon
   stop            Stop the running daemon
   restart         Restart the daemon
-  status          Display daemon health, active model, and token usage
+  status          Display daemon health, active model, context window, and token usage
   models          List all 36+ available OpenCode Go models
   switch <model>  Change default model (e.g. space-bunny, muse-spark-1.3-contributor)
+  effort [level]  View or set reasoning effort (low, medium, high, xhigh, auto)
   set-key <key>   Save OpenCode API key securely to user configuration
   test            Run live verification on muse-spark and space-bunny
-  setup           Configure OpenClaude provider profile to use this gateway
+  setup           Configure OpenClaude provider profile to use this gateway (1M context & effort enabled)
   help            Show this help dialog
 `);
     break;

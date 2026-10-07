@@ -14,7 +14,7 @@ OpenCode Go hosts 36+ cutting-edge models behind strict harness fingerprinting. 
 3. **Model Prefix Stripping**: Normalizes prefix variations (`opencode-unlocked-*` -> `*`).
 
 ## Primary Models
-- **`muse-spark-1.3-contributor`** (Default): High-capability reasoning and coding model. Requires `/responses` protocol; translated automatically by the bridge.
+- **`muse-spark-1.3-contributor`** (Default): High-capability reasoning and coding model with a full **1M (1,048,576 token)** context window. Supports configurable reasoning effort (`low`, `medium`, `high`, `xhigh`). Requires `/responses` protocol; translated automatically by the bridge.
 - **`space-bunny`**: Fast, lightweight general and coding model. Native `/chat/completions`.
 - **`deepseek-v4-flash`**: High-throughput flash model.
 - **`glm-5.3`**: General language model.
@@ -25,5 +25,6 @@ OpenCode Go hosts 36+ cutting-edge models behind strict harness fingerprinting. 
 
 ## Operational Commands
 - Check daemon health and usage: `/opencode-unlocked:status`
-- Manage models and keys: `/opencode-unlocked:unlocked`
-- CLI Management: `opencode-unlocked [start|stop|restart|status|models|test|set-key]`
+- Manage models, keys, and effort: `/opencode-unlocked:unlocked [models|switch <model>|effort <level>|key <key>|test]`
+- Adjust reasoning effort directly: `/effort [low|medium|high|xhigh|auto]`
+- CLI Management: `opencode-unlocked [start|stop|restart|status|models|switch|effort|test|set-key|setup]`

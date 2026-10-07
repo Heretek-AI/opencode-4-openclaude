@@ -42,6 +42,8 @@ export OPENAI_BASE_URL="${GATEWAY_URL}/v1"
 if [ -z "\$OPENAI_MODEL" ]; then
   export OPENAI_MODEL="muse-spark-1.3-contributor"
 fi
+export CLAUDE_CODE_ALWAYS_ENABLE_EFFORT="1"
+export CLAUDE_CODE_OPENAI_CONTEXT_WINDOWS='{"muse-spark-1.3-contributor":1048576,"muse-spark-1.2-contributor":1048576,"muse-spark":1048576}'
 EOF
 fi
 
@@ -50,7 +52,7 @@ cat << EOF
 {
   "hookSpecificOutput": {
     "hookEventName": "SessionStart",
-    "additionalContext": "Opencode Unlocked active at ${GATEWAY_URL}/v1. Default model: muse-spark-1.3-contributor (Space Bunny and 36+ models available)."
+    "additionalContext": "Opencode Unlocked active at ${GATEWAY_URL}/v1. Default model: muse-spark-1.3-contributor (1M context window, multi-level reasoning effort)."
   }
 }
 EOF

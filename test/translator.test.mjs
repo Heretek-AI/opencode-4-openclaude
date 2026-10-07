@@ -36,6 +36,39 @@ assert.equal(responsesPayload.input.length, 2);
 assert.equal(responsesPayload.input[0].role, "system");
 assert.equal(responsesPayload.input[1].content, "Hello world");
 
+// 2b. Verify reasoning effort translation
+const effortHighReq = {
+  model: "muse-spark-1.3-contributor",
+  messages: [{ role: "user", content: "Hi" }],
+  reasoning_effort: "high"
+};
+const effortHighPayload = chatCompletionsToResponsesBody(effortHighReq);
+assert.deepEqual(effortHighPayload.reasoning, { effort: "high" });
+
+const effortXHighReq = {
+  model: "muse-spark-1.3-contributor",
+  messages: [{ role: "user", content: "Hi" }],
+  reasoning_effort: "xhigh"
+};
+const effortXHighPayload = chatCompletionsToResponsesBody(effortXHighReq);
+assert.deepEqual(effortXHighPayload.reasoning, { effort: "xhigh" });
+
+const effortNoneReq = {
+  model: "muse-spark-1.3-contributor",
+  messages: [{ role: "user", content: "Hi" }],
+  reasoning_effort: "none"
+};
+const effortNonePayload = chatCompletionsToResponsesBody(effortNoneReq);
+assert.equal(effortNonePayload.reasoning, undefined);
+
+const effortNestedReq = {
+  model: "muse-spark-1.3-contributor",
+  messages: [{ role: "user", content: "Hi" }],
+  reasoning: { effort: "low" }
+};
+const effortNestedPayload = chatCompletionsToResponsesBody(effortNestedReq);
+assert.deepEqual(effortNestedPayload.reasoning, { effort: "low" });
+
 // 3. Responses API non-streaming JSON -> Chat Completions JSON
 const rawResponsesResp = {
   id: "resp_1234567890",
