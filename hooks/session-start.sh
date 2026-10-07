@@ -49,6 +49,7 @@ fi
 cat << EOF
 {
   "hookSpecificOutput": {
+    "hookEventName": "SessionStart",
     "additionalContext": "Opencode Unlocked active at ${GATEWAY_URL}/v1. Default model: muse-spark-1.3-contributor (Space Bunny and 36+ models available)."
   }
 }
