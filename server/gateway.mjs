@@ -134,6 +134,8 @@ async function handleChatCompletions(req, res) {
     return;
   }
 
+  console.log(`[Opencode Unlocked] Request: model=${body.model || 'default'} stream=${!!body.stream} effort=${body.reasoning_effort || JSON.stringify(body.reasoning)}`);
+
   // Resolve API Key
   let apiKey = getApiKey();
   const authHeader = req.headers.authorization;
