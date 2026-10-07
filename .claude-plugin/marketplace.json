@@ -1,0 +1,17 @@
+{
+  "name": "opencode-unlocked",
+  "owner": {
+    "name": "Opencode Unlocked Contributors",
+    "url": "https://github.com/opencode-unlocked"
+  },
+  "plugins": [
+    {
+      "name": "opencode-unlocked",
+      "source": "./",
+      "description": "Seamless OpenClaude provider plugin and authentic harness bridge for OpenCode Go models (default: Muse Spark 1.3 Contributor, Space Bunny, and more).",
+      "version": "1.0.0",
+      "category": "ai-providers",
+      "tags": ["opencode", "models", "provider", "muse-spark", "space-bunny"]
+    }
+  ]
+}

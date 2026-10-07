@@ -1,0 +1,27 @@
+{
+  "name": "opencode-unlocked",
+  "version": "1.0.0",
+  "description": "Seamless OpenClaude provider plugin and authentic harness bridge for OpenCode Go models.",
+  "type": "module",
+  "main": "server/gateway.mjs",
+  "bin": {
+    "opencode-unlocked": "./bin/opencode-unlocked"
+  },
+  "scripts": {
+    "start": "node server/gateway.mjs",
+    "setup": "node bin/setup.mjs",
+    "test": "node test/session.test.mjs && node test/translator.test.mjs && node test/gateway.test.mjs",
+    "test:live": "node test/live-models.test.mjs"
+  },
+  "keywords": [
+    "openclaude",
+    "openclaude-plugin",
+    "opencode",
+    "opencode-go",
+    "muse-spark",
+    "space-bunny",
+    "ai-bridge"
+  ],
+  "author": "Opencode Unlocked Contributors",
+  "license": "MIT"
+}

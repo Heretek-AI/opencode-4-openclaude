@@ -1,0 +1,23 @@
+# Environment & Secrets (NEVER COMMIT)
+.env
+.env.*
+*.key
+*.token
+credentials.json
+
+# Local review repositories
+review/
+
+# Dependencies
+node_modules/
+package-lock.json
+
+# Runtime & Process State
+*.log
+*.pid
+.openclaude/
+.cache/
+
+# OS
+.DS_Store
+Thumbs.db

@@ -1,0 +1,17 @@
+{
+  "name": "opencode-unlocked",
+  "version": "1.0.0",
+  "description": "Seamless OpenClaude provider plugin and authentic harness bridge for OpenCode Go models.",
+  "author": {
+    "name": "Opencode Unlocked Contributors"
+  },
+  "license": "MIT",
+  "keywords": [
+    "opencode",
+    "opencode-go",
+    "muse-spark",
+    "space-bunny",
+    "provider",
+    "bridge"
+  ]
+}

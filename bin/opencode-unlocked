@@ -1,0 +1,222 @@
+#!/usr/bin/env node
+import fs from "node:fs";
+import path from "node:path";
+import { spawn } from "node:child_process";
+import { fileURLToPath } from "node:url";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const ROOT_DIR = path.resolve(__dirname, "..");
+const PID_FILE = path.join(ROOT_DIR, ".gateway.pid");
+const LOG_FILE = "/tmp/opencode-unlocked.log";
+
+const { CONFIG, getApiKey, saveUserConfig, loadUserConfig, getUserConfigPath } = await import("../server/config.mjs");
+const { catalog } = await import("../server/catalog.mjs");
+
+const args = process.argv.slice(2);
+const command = args[0] || "status";
+
+async function isGatewayRunning() {
+  try {
+    const res = await fetch(`http://${CONFIG.HOST}:${CONFIG.PORT}/health`, { signal: AbortSignal.timeout(1000) });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+function getStoredPid() {
+  if (fs.existsSync(PID_FILE)) {
+    try {
+      const pid = parseInt(fs.readFileSync(PID_FILE, "utf-8").trim(), 10);
+      return isNaN(pid) ? null : pid;
+    } catch {
+      return null;
+    }
+  }
+  return null;
+}
+
+async function startDaemon() {
+  if (await isGatewayRunning()) {
+    console.log(`✔ Opencode Unlocked gateway is already running on http://${CONFIG.HOST}:${CONFIG.PORT}`);
+    return;
+  }
+
+  const out = fs.openSync(LOG_FILE, "a");
+  const err = fs.openSync(LOG_FILE, "a");
+
+  const child = spawn(process.execPath, [path.join(ROOT_DIR, "server", "gateway.mjs")], {
+    detached: true,
+    stdio: ["ignore", out, err],
+    cwd: ROOT_DIR,
+    env: process.env
+  });
+
+  child.unref();
+  fs.writeFileSync(PID_FILE, String(child.pid), "utf-8");
+
+  // Wait for health
+  for (let i = 0; i < 30; i++) {
+    await new Promise((r) => setTimeout(r, 100));
+    if (await isGatewayRunning()) {
+      console.log(`✔ Opencode Unlocked gateway started (PID: ${child.pid}) on http://${CONFIG.HOST}:${CONFIG.PORT}`);
+      console.log(`  Default Model: ${CONFIG.DEFAULT_MODEL}`);
+      console.log(`  Logs: ${LOG_FILE}`);
+      return;
+    }
+  }
+
+  console.error("❌ Failed to verify gateway startup. Check logs at:", LOG_FILE);
+  process.exit(1);
+}
+
+async function stopDaemon() {
+  const pid = getStoredPid();
+  if (pid) {
+    try {
+      process.kill(pid, "SIGTERM");
+      console.log(`✔ Sent stop signal to process ${pid}`);
+    } catch (e) {
+      if (e.code !== "ESRCH") console.error("Error stopping process:", e.message);
+    }
+    if (fs.existsSync(PID_FILE)) fs.unlinkSync(PID_FILE);
+  }
+
+  if (await isGatewayRunning()) {
+    console.log("Waiting for gateway to shut down...");
+    for (let i = 0; i < 20; i++) {
+      await new Promise((r) => setTimeout(r, 100));
+      if (!(await isGatewayRunning())) break;
+    }
+  }
+
+  if (!(await isGatewayRunning())) {
+    console.log("✔ Gateway stopped successfully.");
+  } else {
+    console.warn("⚠ Gateway is still responding on the port.");
+  }
+}
+
+async function printStatus() {
+  const running = await isGatewayRunning();
+  const apiKey = getApiKey();
+  const config = loadUserConfig();
+
+  console.log("==========================================");
+  console.log("        Opencode Unlocked Status          ");
+  console.log("==========================================");
+  console.log(`Gateway Status : ${running ? "🟢 ONLINE" : "🔴 OFFLINE"}`);
+  console.log(`Gateway URL    : http://${CONFIG.HOST}:${CONFIG.PORT}/v1`);
+  console.log(`Default Model  : ${config.defaultModel || CONFIG.DEFAULT_MODEL}`);
+  console.log(`API Key Loaded : ${apiKey ? `✔ Configured (${apiKey.slice(0, 8)}...)` : "❌ Missing"}`);
+  console.log(`Config Path    : ${getUserConfigPath()}`);
+
+  if (running) {
+    try {
+      const res = await fetch(`http://${CONFIG.HOST}:${CONFIG.PORT}/status`);
+      if (res.ok) {
+        const data = await res.json();
+        console.log("------------------------------------------");
+        console.log(`Session Req's  : ${data.stats.sessionRequests}`);
+        console.log(`Tokens Consumed: ${data.stats.sessionTokens.total} (in: ${data.stats.sessionTokens.input}, out: ${data.stats.sessionTokens.output})`);
+      }
+    } catch {
+      // ignore
+    }
+  }
+  console.log("==========================================");
+}
+
+async function listModels() {
+  console.log("Fetching available models...");
+  const models = await catalog.getModels(true);
+  console.log(`\nAvailable Models (${models.length}):`);
+  for (const m of models) {
+    const isDefault = m.id === CONFIG.DEFAULT_MODEL;
+    console.log(`  ${isDefault ? "★ [DEFAULT] " : "  - "}${m.id}`);
+  }
+}
+
+async function setKey(key) {
+  if (!key) {
+    console.error("Usage: opencode-unlocked set-key <OPENCODE_API_KEY>");
+    process.exit(1);
+  }
+  saveUserConfig({ apiKey: key });
+  console.log("✔ API key saved securely to:", getUserConfigPath());
+}
+
+async function setModel(modelName) {
+  if (!modelName) {
+    console.error("Usage: opencode-unlocked switch <MODEL_NAME>");
+    process.exit(1);
+  }
+  saveUserConfig({ defaultModel: modelName });
+  console.log(`✔ Default model updated to: ${modelName}`);
+}
+
+async function runTests() {
+  console.log("Running live verification suite...");
+  const child = spawn(process.execPath, [path.join(ROOT_DIR, "test", "live-models.test.mjs")], {
+    stdio: "inherit",
+    cwd: ROOT_DIR
+  });
+  child.on("exit", (code) => {
+    process.exit(code || 0);
+  });
+}
+
+switch (command) {
+  case "start":
+    await startDaemon();
+    break;
+  case "stop":
+    await stopDaemon();
+    break;
+  case "restart":
+    await stopDaemon();
+    await startDaemon();
+    break;
+  case "status":
+    await printStatus();
+    break;
+  case "models":
+    await listModels();
+    break;
+  case "set-key":
+  case "key":
+    await setKey(args[1]);
+    break;
+  case "switch":
+  case "set-model":
+    await setModel(args[1]);
+    break;
+  case "test":
+    await runTests();
+    break;
+  case "setup":
+    await import("./setup.mjs");
+    break;
+  case "help":
+  case "--help":
+  default:
+    console.log(`
+Opencode Unlocked CLI Management
+
+Usage: opencode-unlocked <command> [arguments]
+
+Commands:
+  start           Start the local bridge daemon
+  stop            Stop the running daemon
+  restart         Restart the daemon
+  status          Display daemon health, active model, and token usage
+  models          List all 36+ available OpenCode Go models
+  switch <model>  Change default model (e.g. space-bunny, muse-spark-1.3-contributor)
+  set-key <key>   Save OpenCode API key securely to user configuration
+  test            Run live verification on muse-spark and space-bunny
+  setup           Configure OpenClaude provider profile to use this gateway
+  help            Show this help dialog
+`);
+    break;
+}
