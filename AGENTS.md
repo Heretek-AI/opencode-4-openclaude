@@ -8,7 +8,7 @@ Back every claim about behavior with something executed or read: test output, co
 
 ## Commands
 
-- **`npm test` goes live when it finds an API key.** `getApiKey()` in `server/config.mjs` reads the environment (`OPENCODE_UNLOCKED_API_KEY`, `OPENCODE_API_KEY`, `GO_KEY`), then `~/.openclaude/opencode-unlocked.json`, then `.env` in the working directory and the repo root. With a key, `test/gateway.test.mjs` sends billed requests upstream. Run it offline:
+- **`npm test` goes live when it finds an API key.** `getApiKey()` in `server/config.mjs` reads the environment (`OPENCODE_UNLOCKED_API_KEY`, `OPENCODE_API_KEY`, `GO_KEY`), then `~/.openclaude/opencode-unlocked.json`, then `.env` in the working directory and the repo root. With a key, `test/gateway.test.mjs` sends billed requests upstream. Run it offline, from a checkout with no `.env` file:
 
   ```sh
   env -i PATH="$PATH" HOME="$(mktemp -d)" npm test
